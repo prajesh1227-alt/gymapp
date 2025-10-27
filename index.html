@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GymApp - Professional Membership Management</title>
+    <!-- Tailwind CSS CDN for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700;900&display=swap" rel="stylesheet">
+    <!-- Font Awesome for sleek, professional icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        /* LUXURIOUS DARK THEME: Deep charcoal with electric blue and gold accents */
+        :root {
+            --bg-color: #0a0a0a; /* Deep Charcoal */
+            --card-bg: #1a1a1a; /* Dark Card Background */
+            --text-color: #f0f0f0; /* Near White Text */
+            --accent-color: #00eaff; /* Electric Blue Accent */
+            --status-active: #48bb78; /* Green for Active */
+            --status-expired: #f56565; /* Red for Expired */
+            --status-highlight: #ffc837; /* Subtle Gold for focus/action */
+            font-family: 'Inter', sans-serif;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 0.75rem; /* Slightly more rounded */
+            padding: 2rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5); /* Stronger shadow */
+            border: 1px solid #2d3748; /* Subtle border */
+        }
+        .btn {
+            padding: 0.6rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 700;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+        }
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: #0a0a0a;
+        }
+        .btn-primary:hover {
+            background-color: #00b3cc;
+            transform: translateY(-1px);
+        }
+        .input-field {
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            border: 1px solid #4b5563;
+            background-color: #2d3748;
+            color: white;
+            width: 100%;
+            transition: border-color 0.2s;
+        }
+        .input-field:focus {
+            border-color: var(--accent-color);
+            outline: none;
+            box-shadow: 0 0 0 1px var(--accent-color);
+        }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+        }
+        .notification {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+        .notification.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="max-w-5xl mx-auto p-4 md:p-10">
+        <header class="text-center py-8 border-b border-gray-700 mb-10">
+            <h1 class="text-5xl font-extrabold text-white tracking-wider">
+                GymApp <span style="color:var(--accent-color);"></span>
+            </h1>
+            <p class="text-base text-gray-400 mt-2" id="user-info">Professional Gym Management Interface</p>
+        </header>
+
+        <div id="notification-area"></div>
+
+        <main id="app-content">
+            <!-- Content will be rendered by JavaScript -->
+        </main>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // --- DATA AND STATE MANAGEMENT ---
+        const APP = {
+            currentRole: null,
+            currentUserId: 'M001', // Default ID for the current logged-in user
+            currentUserName: 'Current User',
+        };
+
+        // Initial Data Structure (Used if localStorage is empty)
+        const initialData = {
+            members: [
+                // Updated User Name and Email
+                { id: 'M001', name: 'Prasanna', email: 'prasanna@pro.com', trainerId: 'T001', status: 'Active' },
+                { id: 'M002', name: 'Jordan Lee', email: 'jordan.lee@pro.com', trainerId: 'T001', status: 'Expired' },
+                { id: 'M003', name: 'Taylor Scott', email: 'taylor.scott@pro.com', trainerId: 'T002', status: 'Active' },
+            ],
+            trainers: [
+                { id: 'T001', name: 'Alice Trainer', email: 'alice.t@pro.com' },
+                { id: 'T002', name: 'Bob Smith', email: 'bob.s@pro.com' },
+            ],
+            plans: [
+                { id: 'P01', name: 'Standard Monthly', price: 50.00, duration: 30 },
+                { id: 'P02', name: 'Premium Annual', price: 499.00, duration: 365 },
+                { id: 'P03', name: 'Intro 7 Day Trial', price: 0.00, duration: 7 },
+            ],
+            memberPlans: [
+                 // M001 is active until 2025-11-01
+                 { memberId: 'M001', planId: 'P01', purchaseDate: '2025-10-01', expiryDate: '2025-11-01', status: 'Active', payments: [{date: '2025-10-01', amount: 50.00}] },
+                 // M002 is expired as of 2025-10-01
+                 { memberId: 'M002', planId: 'P01', purchaseDate: '2025-09-01', expiryDate: '2025-10-01', status: 'Expired', payments: [{date: '2025-09-01', amount: 50.00}] }
+            ],
+            schedules: [
+                { id: 'C01', name: 'HIIT Blast', trainerId: 'T001', day: 'Monday', time: '18:00', attendees: ['M001'] },
+                { id: 'C02', name: 'Yoga Flow', trainerId: 'T002', day: 'Wednesday', time: '10:00', attendees: [] },
+            ],
+            attendance: [
+                { memberId: 'M001', classId: 'C01', date: '2025-10-20' }
+            ]
+        };
+
+        // --- LOCAL STORAGE UTILITIES ---
+
+        function getStore() {
+            try {
+                const stored = localStorage.getItem('gymAppData');
+                return stored ? JSON.parse(stored) : initialData;
+            } catch (e) {
+                console.error("Error loading data from localStorage, using initial data.", e);
+                return initialData;
+            }
+        }
+
+        function saveStore(data) {
+            try {
+                localStorage.setItem('gymAppData', JSON.stringify(data));
+                renderDashboard(); // Re-render after any data change
+            } catch (e) {
+                console.error("Error saving data to localStorage.", e);
+                showNotification("Failed to save data to local storage.", 'error');
+            }
+        }
+
+        const store = getStore();
+
+        // --- UI ELEMENTS & UTILITIES ---
+        const appContent = document.getElementById('app-content');
+        const userInfo = document.getElementById('user-info');
+
+        /** Shows a temporary, professional notification. */
+        function showNotification(message, type = 'info') {
+            const area = document.getElementById('notification-area');
+            const colorMap = {
+                success: 'bg-green-600',
+                error: 'bg-red-600',
+                info: 'bg-blue-600'
+            };
+            const iconMap = {
+                success: 'fa-check-circle',
+                error: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            };
+
+            const notification = document.createElement('div');
+            notification.className = `notification ${colorMap[type]} text-white`;
+            notification.innerHTML = `<i class="fas ${iconMap[type]} mr-2"></i> ${message}`;
+
+            area.appendChild(notification);
+
+            // Animate in
+            setTimeout(() => notification.classList.add('show'), 10);
+
+            // Animate out and remove
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 5000); // Increased duration for important messages
+        }
+        window.showNotification = showNotification;
+
+        // --- CORE UI LOGIC (Role Selection) ---
+
+        function renderRoleSelection() {
+            appContent.innerHTML = `
+                <div class="card max-w-lg mx-auto text-center space-y-8">
+                    <h2 class="text-3xl font-bold text-white">Access Portal</h2>
+                    <p class="text-gray-400 border-b border-gray-700 pb-4">Select your role to view the professional dashboard. (Simulated Authentication)</p>
+                    <div class="flex flex-col md:flex-row justify-center space-y-4 md:space-y-0 md:space-x-8">
+                        <button onclick="selectRole('Trainer', 'T001')" class="btn bg-green-700 hover:bg-green-600 text-white shadow-lg">
+                            <i class="fas fa-user-tie mr-2"></i> Trainer Login
+                        </button>
+                        <button onclick="selectRole('Member', 'M001')" class="btn bg-blue-700 hover:bg-blue-600 text-white shadow-lg">
+                            <i class="fas fa-user mr-2"></i> Member Login (Prasanna)
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 pt-4">For testing purposes:
+                        <button class="underline text-red-400 hover:text-red-300" onclick="selectRole('Member', 'M002')">
+                            Login as Expired Member (Jordan Lee)
+                        </button>
+                    </p>
+                </div>
+            `;
+        }
+
+        function selectRole(role, userId = null) {
+            APP.currentRole = role;
+
+            if (role === 'Trainer') {
+                APP.currentUserId = userId || 'T001';
+                APP.currentUserName = store.trainers.find(t => t.id === APP.currentUserId)?.name || 'Trainer';
+            } else { // Member
+                APP.currentUserId = userId || 'M001';
+                APP.currentUserName = store.members.find(m => m.id === APP.currentUserId)?.name || 'Member';
+            }
+
+            userInfo.innerHTML = `ACCESS GRANTED: <span style="color:var(--accent-color);" class="font-bold">${APP.currentRole}</span> | User: ${APP.currentUserName}`;
+            renderDashboard();
+        }
+        window.selectRole = selectRole;
+
+        function renderDashboard() {
+            if (APP.currentRole === 'Trainer') {
+                renderTrainerDashboard();
+            } else if (APP.currentRole === 'Member') {
+                renderMemberDashboard();
+            } else {
+                renderRoleSelection();
+            }
+        }
+
+        // --- MEMBER HELPER FUNCTIONS ---
+
+        function getMemberPlan(memberId) {
+            const memberPlan = store.memberPlans.find(mp => mp.memberId === memberId);
+            if (!memberPlan) return null;
+            const plan = store.plans.find(p => p.id === memberPlan.planId);
+            return { ...memberPlan, ...plan };
+        }
+
+        // --- EXPIRY CHECK UTILITY ---
+
+        /** Checks the member's subscription status and shows notifications if expired or expiring soon. */
+        function checkSubscriptionExpiry(memberId) {
+            const plan = getMemberPlan(memberId);
+
+            if (!plan) {
+                 showNotification("No active membership plan found. Please purchase a plan.", 'error');
+                 return;
+            }
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Normalize today's date
+
+            // 1. Check for Expired Status
+            if (plan.status === 'Expired') {
+                const message = `Your subscription has ended. Plan active from: ${plan.purchaseDate} to ${plan.expiryDate}. Please renew to continue.`;
+                showNotification(message, 'error');
+                return;
+            }
+
+            // 2. Check for upcoming Expiry Warning (within 7 days)
+            const expiry = new Date(plan.expiryDate);
+            const warningDate = new Date();
+            warningDate.setDate(warningDate.getDate() + 7);
+            warningDate.setHours(0, 0, 0, 0);
+
+            if (expiry <= warningDate && expiry >= today) {
+                const daysLeft = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                const message = `Warning! Your ${plan.name} plan expires in ${daysLeft} days on ${plan.expiryDate}.`;
+                showNotification(message, 'info');
+            }
+        }
+
+        // --- MEMBER DASHBOARD ---
+
+        function renewMembership(memberId, planId) {
+            const plan = store.plans.find(p => p.id === planId);
+            if (!plan) return;
+
+            const newPurchaseDate = new Date().toISOString().split('T')[0];
+            const expiry = new Date();
+            expiry.setDate(expiry.getDate() + plan.duration);
+            const newExpiryDate = expiry.toISOString().split('T')[0];
+
+            const updatedMemberPlans = store.memberPlans.map(mp => {
+                if (mp.memberId === memberId) {
+                    return {
+                        memberId,
+                        planId,
+                        purchaseDate: newPurchaseDate,
+                        expiryDate: newExpiryDate,
+                        status: 'Active',
+                        payments: [...mp.payments, { date: newPurchaseDate, amount: plan.price }]
+                    };
+                }
+                return mp;
+            });
+
+            // Check if the member had a plan, if not, add a new entry
+            if (!store.memberPlans.some(mp => mp.memberId === memberId)) {
+                updatedMemberPlans.push({
+                    memberId,
+                    planId,
+                    purchaseDate: newPurchaseDate,
+                    expiryDate: newExpiryDate,
+                    status: 'Active',
+                    payments: [{ date: newPurchaseDate, amount: plan.price }]
+                });
+            }
+
+            store.memberPlans = updatedMemberPlans;
+            saveStore(store);
+            showNotification(`Membership renewed! You are now on the ${plan.name} plan.`, 'success');
+        }
+        window.renewMembership = renewMembership;
+
+        function renderPaymentTracking(memberId) {
+            const memberPlan = store.memberPlans.find(mp => mp.memberId === memberId);
+            if (!memberPlan || !memberPlan.payments || memberPlan.payments.length === 0) {
+                return '<p class="text-gray-400 text-sm">No payment records found.</p>';
+            }
+
+            const totalPaid = memberPlan.payments.reduce((sum, p) => sum + p.amount, 0).toFixed(2);
+
+            const list = memberPlan.payments.map(p => `
+                <li class="flex justify-between text-sm font-mono border-b border-gray-700 py-2 hover:bg-[#252525]">
+                    <span class="text-gray-400">${p.date}</span>
+                    <span class="text-green-400 font-bold">₹${p.amount.toFixed(2)}</span>
+                </li>
+            `).join('');
+
+            return `
+                <div class="space-y-3">
+                    <ul class="max-h-40 overflow-y-auto pr-2">${list}</ul>
+                    <div class="flex justify-between font-bold pt-3 border-t border-gray-600 text-lg">
+                        <span>Total Lifetime Value:</span>
+                        <span style="color:var(--status-highlight);">₹${totalPaid}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMemberDashboard() {
+            const memberId = APP.currentUserId;
+
+            // Run expiry check and show notification if applicable
+            checkSubscriptionExpiry(memberId);
+
+            const plan = getMemberPlan(memberId);
+            const myAttendance = store.attendance.filter(a => a.memberId === memberId);
+            const schedules = store.schedules;
+
+            const planStatus = plan
+                ? `<span class="font-extrabold text-2xl ${plan.status === 'Active' ? 'text-green-400' : 'text-red-400'}">${plan.name}</span>
+                   <p class="text-gray-400 text-sm mt-1">Status: ${plan.status} | Expires: ${plan.expiryDate}</p>`
+                : `<span class="font-bold text-red-400 text-xl">No Active Plan</span>.`;
+
+            const attendanceList = myAttendance.length > 0
+                ? myAttendance.map(att => {
+                    const classItem = schedules.find(c => c.id === att.classId);
+                    return `<li class="flex justify-between text-sm border-b border-gray-700 py-2 hover:bg-[#252525]">
+                                <span class="font-semibold" style="color:var(--accent-color);">${classItem?.name || 'Unknown Class'}</span>
+                                <span class="text-gray-400">${att.date}</span>
+                            </li>`;
+                }).join('')
+                : '<p class="text-gray-400 text-sm pt-2">No attendance records found yet. Book a class!</p>';
+
+            const scheduleList = schedules
+                .map(c => {
+                    const trainer = store.trainers.find(t => t.id === c.trainerId);
+                    return `
+                        <div class="p-4 border-b border-gray-700 hover:bg-[#252525] transition duration-150">
+                            <div class="flex justify-between">
+                                <span class="font-semibold text-lg" style="color:var(--status-highlight);">${c.name}</span>
+                                <span class="text-white font-bold">${c.time}</span>
+                            </div>
+                            <span class="text-gray-400 text-sm">${c.day} | Trainer: ${trainer?.name || 'Unknown'}</span>
+                        </div>
+                    `;
+                  }).join('')
+                ;
+
+            const plansList = store.plans
+                .map(p => {
+                    const isCurrent = plan && plan.planId === p.id;
+                    return `
+                        <div class="flex justify-between items-center border-b border-gray-700 py-3">
+                            <div>
+                                <p class="font-bold text-lg">${p.name}</p>
+                                <p class="text-sm text-gray-400">₹${p.price.toFixed(2)} / ${p.duration} days</p>
+                            </div>
+                            <button class="btn bg-blue-700 hover:bg-blue-600 text-white text-xs py-2 px-4"
+                                    onclick="renewMembership('${memberId}', '${p.id}')">
+                                ${isCurrent ? 'RENEW' : 'PURCHASE'}
+                            </button>
+                        </div>
+                    `;
+                }).join('');
+
+            appContent.innerHTML = `
+                <h2 class="text-4xl font-extrabold mb-8 text-white">Welcome Back, ${APP.currentUserName}</h2>
+                <button onclick="selectRole(null)" class="text-sm text-gray-400 hover:text-white mb-6 underline">← Change Role</button>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <!-- Membership Plans & Status -->
+                    <div class="card md:col-span-1 space-y-6">
+                        <h3 class="text-2xl font-bold border-b border-gray-700 pb-3 flex items-center" style="color:var(--accent-color);"><i class="fas fa-id-card-alt mr-3"></i> Membership Status</h3>
+
+                        <div class="pb-4 border-b border-gray-800">
+                            ${planStatus}
+                        </div>
+
+                        <h4 class="font-bold text-xl pt-2 border-t border-gray-800">Available Plans</h4>
+                        <div class="space-y-2">${plansList}</div>
+                    </div>
+
+                    <!-- Payment Tracking -->
+                    <div class="card md:col-span-2">
+                        <h3 class="text-2xl font-bold mb-5 border-b border-gray-700 pb-3 flex items-center" style="color:var(--accent-color);"><i class="fas fa-wallet mr-3"></i> Payment Tracking</h3>
+                        ${renderPaymentTracking(memberId)}
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+                    <!-- Class Schedule -->
+                    <div class="card">
+                        <h3 class="text-2xl font-bold mb-5 border-b border-gray-700 pb-3 flex items-center" style="color:var(--accent-color);"><i class="fas fa-calendar-alt mr-3"></i> Class Schedule</h3>
+                        <div class="space-y-1 max-h-80 overflow-y-auto">
+                            ${scheduleList || '<p class="text-gray-400">No classes scheduled.</p>'}
+                        </div>
+                    </div>
+
+                    <!-- Attendance Tracking -->
+                    <div class="card">
+                        <h3 class="text-2xl font-bold mb-5 border-b border-gray-700 pb-3 flex items-center" style="color:var(--accent-color);"><i class="fas fa-check-square mr-3"></i> Personal Attendance History</h3>
+                        <ul class="space-y-1 max-h-80 overflow-y-auto pr-2">
+                            ${attendanceList}
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- TRAINER HELPER FUNCTIONS ---
+
+        function getTrainerMembers(trainerId) {
+            return store.members
+                .filter(m => m.trainerId === trainerId)
+                .map(m => {
+                    const plan = getMemberPlan(m.id);
+                    return { ...m, membershipStatus: plan?.status || 'Unregistered' };
+                });
+        }
+
+        function getTrainerClasses(trainerId) {
+            return store.schedules.filter(c => c.trainerId === trainerId);
+        }
+
+        // --- TRAINER DASHBOARD ---
+
+        function renderTrainerDashboard() {
+            const trainerId = APP.currentUserId;
+            const members = getTrainerMembers(trainerId);
+            const classes = getTrainerClasses(trainerId);
+
+            const memberList = members.map(m => `
+                <tr class="border-b border-gray-700 hover:bg-[#252525] transition duration-150">
+                    <td class="p-4 font-semibold">${m.name}</td>
+                    <td class="p-4 text-sm text-gray-400">${m.email}</td>
+                    <td class="p-4">
+                        <span class="px-3 py-1 text-xs font-bold rounded-full
+                            ${m.membershipStatus === 'Active' ? 'bg-green-700 text-green-200' : 'bg-red-700 text-red-200'}">
+                            ${m.membershipStatus}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+
+            const classList = classes.map(c => `
+                <div class="card mb-4 p-5 flex justify-between items-center bg-[#252525] border-l-4 border-blue-500 hover:bg-[#2d3748] transition duration-150">
+                    <div>
+                        <span class="text-xl font-bold text-white">${c.name}</span>
+                        <p class="text-sm text-gray-400">${c.day} at ${c.time}</p>
+                    </div>
+                    <button class="btn bg-yellow-600 hover:bg-yellow-500 text-black text-sm"
+                            onclick="renderAttendanceMonitor('${c.id}', '${c.name}')">
+                        <i class="fas fa-users mr-2"></i> Monitor Attendance
+                    </button>
+                </div>
+            `).join('');
+
+
+            appContent.innerHTML = `
+                <h2 class="text-4xl font-extrabold mb-8 text-white">Trainer Console: ${APP.currentUserName}</h2>
+                <button onclick="selectRole(null)" class="text-sm text-gray-400 hover:text-white mb-6 underline">← Change Role</button>
+
+                <!-- Class Schedule Management -->
+                <div class="card mb-8">
+                    <h3 class="text-2xl font-bold mb-6 border-b border-gray-700 pb-3 flex items-center" style="color:var(--accent-color);"><i class="fas fa-calendar-plus mr-3"></i> Schedule Management</h3>
+                    ${classList || '<p class="text-gray-400 p-4 bg-gray-800 rounded">No classes scheduled yet. Use the button below to add one.</p>'}
+                    <button onclick="renderClassCreator()" class="btn bg-blue-700 hover:bg-blue-600 w-full mt-6">
+                        <i class="fas fa-plus mr-2"></i> Add New Class
+                    </button>
+                </div>
+
+                <!-- Assigned Members -->
+                <div class="card mb-8">
+                    <h3 class="text-2xl font-bold mb-6 border-b border-gray-700 pb-3 flex items-center" style="color:var(--accent-color);"><i class="fas fa-list-ol mr-3"></i> Assigned Members Roster (${members.length})</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-left">
+                            <thead>
+                                <tr class="uppercase text-sm text-gray-400 border-b border-gray-500">
+                                    <th class="p-4">Name</th>
+                                    <th class="p-4">Email</th>
+                                    <th class="p-4">Membership Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${memberList || '<tr><td colspan="3" class="p-4 text-gray-400">No members currently assigned to you.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="attendance-monitor-placeholder"></div>
+            `;
+        }
+
+        // --- CLASS CREATION LOGIC ---
+
+        function generateUniqueId(prefix) {
+            return prefix + Math.random().toString(36).substring(2, 9);
+        }
+
+        function handleClassCreation(event) {
+            event.preventDefault();
+            const form = event.target;
+            const newClass = {
+                id: generateUniqueId('C'),
+                name: form.className.value,
+                trainerId: APP.currentUserId,
+                day: form.day.value,
+                time: form.time.value,
+                attendees: [],
+            };
+
+            store.schedules.push(newClass);
+            saveStore(store);
+            document.getElementById('attendance-monitor-placeholder').innerHTML = ''; // Close modal
+            showNotification(`Class '${newClass.name}' scheduled successfully.`, 'success');
+        }
+
+        function renderClassCreator() {
+            const html = `
+                <div class="overlay">
+                    <div class="card w-full max-w-md bg-gray-800 p-8">
+                        <h3 class="text-3xl font-bold mb-6 text-white border-b border-gray-700 pb-3">Create New Class</h3>
+                        <form onsubmit="handleClassCreation(event)" class="space-y-6">
+                            <input type="text" name="className" placeholder="Class Name (e.g., Zumba, Boxing)" class="input-field" required>
+                            <select name="day" class="input-field" required>
+                                <option value="" disabled selected>Select Day of the Week</option>
+                                <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+                                <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>
+                            </select>
+                            <input type="text" name="time" placeholder="Time (e.g., 17:30 or 5:30 PM)" class="input-field" required>
+                            <div class="flex justify-end space-x-4 pt-4">
+                                <button type="button" onclick="document.getElementById('attendance-monitor-placeholder').innerHTML = ''"
+                                        class="btn bg-gray-600 hover:bg-gray-500 text-white">Cancel</button>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-calendar-plus mr-2"></i> Schedule Class
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+            document.getElementById('attendance-monitor-placeholder').innerHTML = html;
+        }
+        window.renderClassCreator = renderClassCreator;
+        window.handleClassCreation = handleClassCreation;
+
+        // --- ATTENDANCE MONITORING LOGIC ---
+
+        function handleAttendanceToggle(classId, memberId, buttonElement) {
+            const today = new Date().toISOString().split('T')[0];
+            const isAttended = buttonElement.dataset.attended === 'true';
+
+            let updatedAttendance = store.attendance;
+            let successMessage = '';
+
+            if (isAttended) {
+                // Unmark attendance
+                const index = updatedAttendance.findIndex(a => a.memberId === memberId && a.classId === classId && a.date === today);
+                if (index !== -1) {
+                    updatedAttendance.splice(index, 1);
+                    successMessage = 'Attendance unmarked successfully.';
+                }
+            } else {
+                // Mark attendance
+                if (!updatedAttendance.some(a => a.memberId === memberId && a.classId === classId && a.date === today)) {
+                     updatedAttendance.push({ memberId, classId, date: today });
+                     successMessage = 'Attendance marked successfully.';
+                }
+            }
+
+            store.attendance = updatedAttendance;
+            saveStore(store);
+
+            // Update button state visually
+            if (isAttended) {
+                buttonElement.classList.remove('bg-green-600', 'hover:bg-green-700');
+                buttonElement.classList.add('bg-gray-500', 'hover:bg-gray-400');
+                buttonElement.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Mark Attended';
+                buttonElement.dataset.attended = 'false';
+            } else {
+                buttonElement.classList.remove('bg-gray-500', 'hover:bg-gray-400');
+                buttonElement.classList.add('bg-green-600', 'hover:bg-green-700');
+                buttonElement.innerHTML = '<i class="fas fa-times-circle mr-2"></i> Unmark';
+                buttonElement.dataset.attended = 'true';
+            }
+
+            if (successMessage) {
+                showNotification(successMessage, 'success');
+            }
+        }
+        window.handleAttendanceToggle = handleAttendanceToggle;
+
+        function renderAttendanceMonitor(classId, className) {
+            const today = new Date().toISOString().split('T')[0];
+            const members = getTrainerMembers(APP.currentUserId);
+            // Get current attendance list for this class, today
+            const currentAttendanceIds = store.attendance
+                .filter(a => a.classId === classId && a.date === today)
+                .map(a => a.memberId);
+
+            const memberButtons = members.map(m => {
+                const isAttended = currentAttendanceIds.includes(m.id);
+                const buttonClass = isAttended ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-500 hover:bg-gray-400';
+                const buttonText = isAttended ? 'Unmark' : 'Mark Attended';
+
+                return `
+                    <div class="flex justify-between items-center p-4 bg-[#252525] rounded shadow-md">
+                        <span class="font-semibold text-lg">${m.name}</span>
+                        <button id="att-btn-${m.id}" data-attended="${isAttended}"
+                                class="btn ${buttonClass} text-sm"
+                                onclick="handleAttendanceToggle('${classId}', '${m.id}', this)">
+                             ${buttonText}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+
+            const monitorHtml = `<div class="overlay">
+                <div class="card w-full max-w-lg bg-gray-800 p-8">
+                    <h3 class="text-3xl font-bold mb-2 text-white border-b border-gray-700 pb-3">${className} Roster</h3>
+                    <p class="text-gray-400 mb-6">Attendance for: <span style="color:var(--status-highlight);" class="font-mono">${today}</span></p>
+
+                    <div class="max-h-96 overflow-y-auto space-y-3 mb-6 pr-2">
+                        ${memberButtons || '<p class="text-gray-400">No members assigned to track for this class.</p>'}
+                    </div>
+
+                    <button class="btn bg-red-700 hover:bg-red-600 w-full" onclick="document.getElementById('attendance-monitor-placeholder').innerHTML = ''">
+                        <i class="fas fa-times mr-2"></i> Close Monitor
+                    </button>
+                </div>
+            </div>`;
+
+            document.getElementById('attendance-monitor-placeholder').innerHTML = monitorHtml;
+        }
+        window.renderAttendanceMonitor = renderAttendanceMonitor;
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', renderRoleSelection);
+
+    </script>
+</body>
+</html>
